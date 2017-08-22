@@ -1,0 +1,15 @@
+{
+    "name": "mwstake/dumpfilter",
+    "description": "Filter a MediaWiki dump",
+    "type": "project",
+    "license": "GPLv3",
+    "authors": [
+        {
+            "name": "Mark A. Hershberger",
+            "email": "mah@nichework.com"
+        }
+    ],
+    "require": {
+        "hakre/xmlreaderiterator": "^0.1.10"
+    }
+}

@@ -1,0 +1,6 @@
+# -*- mode: gitignore; -*-
+*~
+\#*\#
+.\#*
+.tramp_history
+vendor
