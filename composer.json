@@ -1,5 +1,5 @@
 {
-    "name": "mwstake/dumpfilter",
+    "name": "mwstake/import-wiki-to-ns",
     "description": "Filter a MediaWiki dump",
     "type": "project",
     "license": "GPLv3",
