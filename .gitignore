@@ -4,3 +4,4 @@
 .\#*
 .tramp_history
 vendor
+composer.lock
