@@ -5,3 +5,5 @@
 .tramp_history
 vendor
 composer.lock
+
+PHPTAGS.sqlite
