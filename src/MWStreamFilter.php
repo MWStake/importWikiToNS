@@ -16,39 +16,60 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+namespace ImportWikiToNS;
+
+$maintPath = dirname( __DIR__ ) . "/vendor/autoload.php";
+if ( file_exists( $maintPath ) ) {
+	require_once $maintPath;
+}
+
+use DomDocument;
+use DOMNodeList;
+use DomXPath;
+use XMLReader;
+use XMLWriter;
+use XMLWritingIteration;
+
 class MWStreamFilter extends XMLWritingIteration {
-	private $re;
-	private $ns;
-	private $nsID;
-	private $oldCase;
+	protected $re;
+	protected $ns;
+	protected $nsID;
+	protected $oldCase;
+	protected $import;
 
-	private $inName;
-	private $outName;
+	protected $nsList;
 
-	private $title;
-	private $content;
+	protected $title;
+	protected $content;
 
-	private $titles;
+	protected $titles;
 
 	/**
 	 * Construct!
-	 * @param string $inFile filename to read
-	 * @param string $outFile filename to write
+	 * @param ImportWikiToNS\Import $import the importer object
 	 */
-	public function __construct( $inFile, $outFile ) {
-		$inTitle = new XMLReader;
-		$inTitle->open( $inFile );
-		// Read input twice.  Got to cache the pages the first time through.
-		$this->getPageTitles( $inTitle );
+	public function __construct( Import $import ) {
+		$this->titles = [];
+		$this->import = $import;
+		if ( $this->import->canReopen() ) {
+			$inTitle = new XMLReader;
+			$inTitle->open( $this->import->getInName() );
+			// Read input twice.  Got to cache the pages the first time through.
+			$this->getPageTitles( $inTitle );
+		} else {
+			$this->import->error( "Cannot update the links if we cannot re-read the file" );
+		}
 
 		$in = new XMLReader;
-		$in->open( $inFile );
-		$this->inName = $inFile;
+		$in->open( $this->import->getInName() );
 
 		$out = new XMLWriter();
-		$out->openURI( $outFile );
-		$this->outName = $inFile;
+		$out->openURI( $this->import->getOutName() );
 
+		$this->ns = $this->import->getTargetNS();
+		$this->nsID = $this->import->getTargetNSID();
+
+		$this->nsList = array_flip( $this->import->getNamespaces() );
 		parent::__construct( $out, $in );
 	}
 
@@ -143,16 +164,15 @@ class MWStreamFilter extends XMLWritingIteration {
 
 	/**
 	 * Main entry point that does all the heavy lifting
-	 * @param Maintenance $maint Object that we'll use for user notifications
 	 */
-	public function transform( Maintenance $maint ) {
+	public function transform() {
 		$this->oldCase = "first-letter";
 		$this->findNamespaces();
 		$this->addNewNamespace();
 		$this->skipToPages();
 
 		do {
-			$xml = $this->filter( $maint );
+			$xml = $this->filter();
 			if ( $xml instanceof DomDocument ) {
 				$this->append( $xml );
 			}
@@ -165,7 +185,8 @@ class MWStreamFilter extends XMLWritingIteration {
 	 *    0 - DomElement for Title
 	 *    1 - DomElement for Namespace
 	 *    2 - DomElement for NamespaceID
-	 *    3 - DomElement for text
+	 *    3 - DomNodeList for text elements
+	 *    3 - DomNodeList for sha1 elements
 	 *    4 - DomDocument for this page
 	 * @FIXME yes, this should be its own class
 	 */
@@ -183,47 +204,56 @@ class MWStreamFilter extends XMLWritingIteration {
 		$ns = $xpath->evaluate( "/m:page/m:ns" );
 		$id = $xpath->evaluate( "/m:page/m:id" );
 		$text = $xpath->evaluate( "/m:page/m:revision/m:text" );
+		$sha1 = $xpath->evaluate( "/m:page/m:revision/m:sha1" );
 
-		return [ $title[0], $ns[0], $id[0], $text, $dom ];
+		return [ $title[0], $ns[0], $id[0], $text, $sha1, $dom ];
+	}
+
+	/**
+	 * Determine if namespace is to be included.
+	 * @fixme stubbed for now
+	 * @param string $title to check
+	 * @return bool
+	 */
+	protected function namespaceIsIncluded( $title ) {
+		# Namespaces don't have : in them, right?
+		if ( preg_match( "#^([^:]+):#", $title, $match ) ) {
+			return isset( $this->nsList[$match[1]] );
+		}
 	}
 
 	/**
 	 * Method to handle the conversion of a page
-	 * @param Maintenance $maint object for user feedback.
 	 * @return DomDocument of massaged page
 	 */
-	public function filter( Maintenance $maint ) {
-		list( $titleEL, $nsEL, $idEL, $textEL, $xml ) = $this->getSXE();
+	public function filter() {
+		list( $titleEL, $nsEL, $idEL, $textEL, $sha1, $xml ) = $this->getPageElements();
 		$append = false;
 		if ( $titleEL ) {
 			$title = $titleEL->textContent;
-			$id = int( $idEL->textContent );
-			$newNS = $this->ns;
+			$ns  = (int)$nsEL->textContent;
+			$newNS = null;
 
-			if ( $id == 1 ) {
-				$newNS = "Talk";
+			if ( $ns === 0 ) {
+				$newNS = $this->ns;
+				$nsEL->textContent = $this->nsID;
+				$title = $newNS . ":$title";
+			}
+			if ( $ns === 1 ) {
+				$newNS = $this->ns . " talk";
+				$nsEL->textContent = $this->nsID + 1;
+				$title = $newNS . ' talk:' . substr( $title, 5 );
 			}
 
-			if ( int( $id ) > 1 ) {
-				$match = [];
-
-				# Namespaces don't have : in them, right?
-				if ( !preg_match( "([^:])+:", $title, $match ) ) {
-					$maint->error( wfMessage( "importw2ns-ns-match", $title )->plain() );
-					return false;
-				}
-				$newNS = $match[1];
+			if ( $ns > 1 && !$this->namespaceIsIncluded( $title ) ) {
+				# Skip this page
+				return false;
 			}
 
-			if ( substr( $title, 0, 5 ) === "Talk:" ) {
-				$title = $this->ns . ' talk:' . substr( $title, 5 );
-			} elseif ( substr( $title, 0, 9 ) !== "Category:" ) {
-				$title = $this->ns . ":$title";
-			}
 			$titleEL->textContent = $title;
 
-			$nsEL->textContent = $this->nsID + $nsEL->textContent;
-			$idEL->textContent = '';
+			$idEL->parentNode->removeChild( $idEL );
+			$this->removeSha1( $sha1 );
 			$this->fixRevisions( $textEL );
 
 			$append = $xml;
@@ -232,10 +262,20 @@ class MWStreamFilter extends XMLWritingIteration {
 	}
 
 	/**
+	 * Remove sha1 just because they're wrong.
+	 * @param DomElement $sha1 the sha1 elements
+	 */
+	protected function removeSha1( DOMNodeList $sha1 ) {
+		foreach ( $sha1 as $el ) {
+			$el->parentNode->removeChild( $el );
+		}
+	}
+
+	/**
 	 * Fix up page all revisions of page content
 	 * @param DomElement $textEL the revisions
 	 */
-	protected function fixRevisions( $textEL ) {
+	protected function fixRevisions( DOMNodeList $textEL ) {
 		$preTitleRE = '#\[\[';
 		$postTitleRE = '#';
 		foreach ( $textEL as $revision ) {
@@ -250,8 +290,6 @@ class MWStreamFilter extends XMLWritingIteration {
 					);
 				}
 			}
-
-			preg_replace( "#<sha1>[^<]+</sha1>#", '', $revText );
 			$revision->textContent = $revText;
 		}
 	}
@@ -273,7 +311,7 @@ class MWStreamFilter extends XMLWritingIteration {
 	 * @param DomDocument $xml to clean
 	 * @return string
 	 */
-	protected function xmlWithoutPI( DomDoument $xml ) {
+	protected function xmlWithoutPI( DomDocument $xml ) {
 		$str = $xml->saveXML();
 		$pattern = '~
 <\?
