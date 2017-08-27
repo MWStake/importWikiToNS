@@ -43,6 +43,9 @@ class Import extends Maintenance {
 
 	protected $namespaces;
 
+	protected $encode;
+	protected $basePath;
+
 	public function __construct() {
 		parent::__construct();
 
@@ -63,6 +66,19 @@ class Import extends Maintenance {
 		$this->addOption( "limit-memory", "Attempt to run with default memory limits. "
 						  . "This is likely to cause problems with the import, but you "
 						  . "can try.", false, false, "M" );
+		$this->addOption( "encode-files", "Embed a file's binary data into the output. "
+						  . "This will make your file larger (maybe too large?) but you'll "
+						  . "only have to deal with one file.\n\n        If you use this, "
+						  . "the File namespace will automatically be included and you "
+						  . "will need to pass the --uploads option to importDump.php."
+						  . "\n\n        If you don't use this but still want to import "
+						  . "one wiki's files into another, you will need to use "
+						  . "--image-base-path with importDump.php. You will also want "
+						  . "to specify at least 'File' for --namespaces.", false, false, "e" );
+		$this->addOption( "image-base-path", "Encode files from a specified path. "
+						  . "Specifying this assumes --encode-files. Defaults to an "
+						  . "images subdirectory in the current directory if not given.",
+						  false, true, "b" );
 		$this->addArg( "dumpfile", "The XML export to use. STDIN is used if this is not "
 					   . "given.", false );
 		$this->addArg( "outfile", "Where to save the XML output.  STDOUT is used if this "
@@ -110,7 +126,34 @@ class Import extends Maintenance {
 
 		$this->namespaces = [];
 		if ( $this->hasOption( "namespaces" ) ) {
-			$this->namespaces = explode( ",", $this->getOption( "namespaces" ) );
+			$this->namespaces = array_flip(
+				explode( ",", $this->getOption( "namespaces" ) )
+			);
+		}
+
+		if ( $this->hasOption( "image-base-path" ) ) {
+			$this->basePath = $this->getOption( "image-base-path" );
+			$this->encode = true;
+		}
+
+		if ( $this->hasOption( "encode-files" ) || $this->encode ) {
+			$this->encode = true;
+
+			$imgs = realpath( $this->basePath ? $this->basePath : "images" );
+			if (
+				!$imgs
+				|| !file_exists( $imgs )
+				|| !is_dir( $imgs )
+				|| !is_readable( $imgs )
+			) {
+				$this->error( sprintf(
+					"Image path (%s) does not exist, is not a directory, or "
+					. "is not readable.", $imgs
+				), true );
+			}
+			$this->output( sprintf( "Using images path: %s\n", $imgs ) );
+			$this->basePath = $imgs;
+			$this->namespaces['File'] = true;
 		}
 
 		$mwsf = new MWStreamFilter( $this );
@@ -124,6 +167,15 @@ class Import extends Maintenance {
 	 */
 	public function error( $err, $die = 0 ) {
 		parent::error( $err, $die );
+	}
+
+	/**
+	 * Expose another protected method.
+	 * @param string $out output
+	 * @param string $channel output channel
+	 */
+	public function output( $out, $channel = null ) {
+		parent::output( $out, $channel );
 	}
 
 	/**

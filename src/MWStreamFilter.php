@@ -69,7 +69,7 @@ class MWStreamFilter extends XMLWritingIteration {
 		$this->ns = $this->import->getTargetNS();
 		$this->nsID = $this->import->getTargetNSID();
 
-		$this->nsList = array_flip( $this->import->getNamespaces() );
+		$this->nsList = $this->import->getNamespaces();
 		parent::__construct( $out, $in );
 	}
 
@@ -133,7 +133,7 @@ class MWStreamFilter extends XMLWritingIteration {
 	 * Internal method to add those namespaces being copied to the output file
 	 */
 	protected function addNewNamespace() {
-		echo "Inserting new namespace\n";
+		$this->import->output( "Inserting new namespace\n" );
 		$this->writer->text( "\n      " );
 		$this->writer->startElement( "namespace" );
 		$this->writer->writeAttribute( "key", $this->nsID );
