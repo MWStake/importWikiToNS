@@ -74,7 +74,10 @@ class Import extends Maintenance {
 						  . "\n\n        If you don't use this but still want to import "
 						  . "one wiki's files into another, you will need to use "
 						  . "--image-base-path with importDump.php. You will also want "
-						  . "to specify at least 'File' for --namespaces.", false, false, "e" );
+						  . "to specify at least 'File' for --namespaces.",
+						  false, false, "e" );
+		$this->addOption( "pages", "Update all links in the so that they point to the new "
+						  . "namespace." );
 		$this->addOption( "image-base-path", "Encode files from a specified path. "
 						  . "Specifying this assumes --encode-files. Defaults to an "
 						  . "images subdirectory in the current directory if not given.",
@@ -158,6 +161,14 @@ class Import extends Maintenance {
 
 		$mwsf = new MWStreamFilter( $this );
 		$mwsf->transform();
+	}
+
+	/**
+	 * Return true if the --pages option is passed.
+	 * @return bool
+	 */
+	public function getUpdatePageLinks() {
+		return $this->hasOption( "pages" );
 	}
 
 	/**

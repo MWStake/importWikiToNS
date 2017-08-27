@@ -46,6 +46,8 @@ class MWStreamFilter extends XMLWritingIteration {
 	protected $content;
 
 	protected $titles;
+	protected $nsFromImport;
+	protected $updatePagesAnyway;
 
 	/**
 	 * Construct!
@@ -60,7 +62,7 @@ class MWStreamFilter extends XMLWritingIteration {
 			// Read input twice.  Got to cache the pages the first time through.
 			$this->getPageTitles( $inTitle );
 		} else {
-			$this->import->error( "Cannot update the links if we cannot re-read the file" );
+			$this->import->error( "Cannot update the links if we cannot re-read the file.  Use --pages to force update anyway." );
 		}
 
 		$in = new XMLReader;
@@ -73,6 +75,9 @@ class MWStreamFilter extends XMLWritingIteration {
 		$this->nsID = $this->import->getTargetNSID();
 
 		$this->nsList = $this->import->getNamespaces();
+
+		$this->updatePagesAnyway = $this->import->getUpdatePageLinks();
+
 		parent::__construct( $out, $in );
 	}
 
@@ -165,6 +170,9 @@ class MWStreamFilter extends XMLWritingIteration {
 		} while ( $this->current()->name !== "page" );
 	}
 
+	protected function readOldNamespaces() {
+	}
+
 	/**
 	 * Main entry point that does all the heavy lifting
 	 */
@@ -172,6 +180,7 @@ class MWStreamFilter extends XMLWritingIteration {
 		$this->oldCase = "first-letter";
 		$this->findNamespaces();
 		$this->addNewNamespace();
+		$this->readOldNamespaces();
 		$this->skipToPages();
 
 		do {
@@ -179,7 +188,10 @@ class MWStreamFilter extends XMLWritingIteration {
 			if ( $xml instanceof DomDocument ) {
 				$this->append( $xml );
 			}
-		} while ( $this->reader-> next() );
+		} while ( $this->reader->next() );
+
+		// Proably not the right way to do this.
+		$this->writer->writeRaw( "</mediawiki>" );
 	}
 
 	/**
@@ -360,10 +372,26 @@ class MWStreamFilter extends XMLWritingIteration {
 	 * @return null|string if fixed
 	 */
 	protected function shouldUpdate( $link ) {
-		if ( isset( $this->titles[ lcFirst( $link ) ] )
-			 && $this->titles[ lcFirst( $link ) ] ) {
+		if (
+			( isset( $this->titles[ lcFirst( $link ) ] )
+			  && $this->titles[ lcFirst( $link ) ] )
+			|| ( $this->updatePagesAnyway && $this->isInMainNS( $link ) )
+		) {
 			return $this->ns . ':' . $link;
 		}
+	}
+
+	/**
+	 * Determine if this title looks like it is in the main namespace.
+	 * @param string $link link text to check
+	 * @return bool
+	 */
+	protected function isInMainNS( $link ) {
+		$prefix = strstr( $link, ":", true );
+		if ( $prefix === false || !isset( $this->nsFromImport[$prefix] ) ) {
+			return true;
+		}
+		return false;
 	}
 
 	/**
