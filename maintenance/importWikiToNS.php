@@ -161,6 +161,22 @@ class Import extends Maintenance {
 	}
 
 	/**
+	 * Where are the files?
+	 * @return string
+	 */
+	public function getBasePath() {
+		return $this->basePath;
+	}
+
+	/**
+	 * Are we supposed to encode files?
+	 * @return bool
+	 */
+	public function shouldEncodeFiles() {
+		return $this->encode;
+	}
+
+	/**
 	 * Expose a protected method.
 	 * @param string $err output
 	 * @param int $die or not

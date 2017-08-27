@@ -24,8 +24,11 @@ if ( file_exists( $maintPath ) ) {
 }
 
 use DomDocument;
+use DOMElement;
 use DOMNodeList;
 use DomXPath;
+use FileRepo;
+use Title;
 use XMLReader;
 use XMLWriter;
 use XMLWritingIteration;
@@ -231,6 +234,7 @@ class MWStreamFilter extends XMLWritingIteration {
 		$append = false;
 		if ( $titleEL ) {
 			$title = $titleEL->textContent;
+			$pageEL = $titleEL->parentNode;
 			$ns  = (int)$nsEL->textContent;
 			$newNS = null;
 
@@ -256,9 +260,65 @@ class MWStreamFilter extends XMLWritingIteration {
 			$this->removeSha1( $sha1 );
 			$this->fixRevisions( $textEL );
 
+			if ( $this->isFile( $title ) && $this->import->shouldEncodeFiles() ) {
+				$this->addEncodedFile( $title, $pageEL );
+			}
+
 			$append = $xml;
 		}
 		return $append;
+	}
+
+	/**
+	 * Is this a title for a file?
+	 * @param string $title to check
+	 * @return bool
+	 */
+	protected function isFile( $title ) {
+		return substr( $title, 0, 5 ) === "File:";
+	}
+
+	/**
+	 * Append an encoded file
+	 * @param string $title of file
+	 * @param DOMDocument $xml to add encoded file to
+	 */
+	protected function addEncodedFile( $title, DOMElement $xml ) {
+		$file = Title::newFromText( $title )->getDBkey();
+		$path = $this->import->getBasePath() . "/" . self::getHashPath( $file ) . "/$file";
+
+		if ( !file_exists( $path ) ) {
+			$this->import->error( "File doesn't exits, cannot encode: " . $file );
+			return;
+		}
+
+		$contents = file_get_contents( $path );
+		if ( $contents === false ) {
+			$this->import->error( "Trouble getting contents of file: " . $file );
+			return;
+		}
+
+		$upload = new DomElement( "upload" );
+		$contents = new DomElement( "contents", chunk_split( base64_encode( $contents ) ) );
+
+		$xml->appendChild( $upload );
+		$upload->appendChild( $contents );
+		$contents->setAttribute( "encoding", "base64" );
+	}
+
+	/**
+	 * Stolen from FileRepo::getHashPathForLevel with 2 hardcoded.
+	 * @param string $name of file
+	 * @return string
+	 */
+	protected static function getHashPath( $name ) {
+		$hash = md5( $name );
+		$path = '';
+		for ( $i = 1; $i <= 2; $i++ ) {
+			$path .= substr( $hash, 0, $i ) . '/';
+		}
+
+		return $path;
 	}
 
 	/**
