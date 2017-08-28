@@ -76,8 +76,10 @@ class Import extends Maintenance {
 						  . "--image-base-path with importDump.php. You will also want "
 						  . "to specify at least 'File' for --namespaces.",
 						  false, false, "e" );
-		$this->addOption( "pages", "Update all links in the so that they point to the new "
-						  . "namespace." );
+		$this->addOption( "pages", "Update all links to the main namespace so that they "
+						  . "point to the new namespace.  This happens normally, but "
+						  . "using this option will attempt to translate redlinks as well "
+						  . "as existing pages" );
 		$this->addOption( "image-base-path", "Encode files from a specified path. "
 						  . "Specifying this assumes --encode-files. Defaults to an "
 						  . "images subdirectory in the current directory if not given.",

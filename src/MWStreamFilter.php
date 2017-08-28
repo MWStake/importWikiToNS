@@ -28,6 +28,7 @@ use DOMElement;
 use DOMNodeList;
 use DomXPath;
 use FileRepo;
+use MediaWiki\MediaWikiServices;
 use Title;
 use XMLReader;
 use XMLWriter;
@@ -77,6 +78,7 @@ class MWStreamFilter extends XMLWritingIteration {
 		$this->nsList = $this->import->getNamespaces();
 
 		$this->updatePagesAnyway = $this->import->getUpdatePageLinks();
+		$this->iwlookup = MediaWikiServices::getInstance()->getInterwikiLookup();
 
 		parent::__construct( $out, $in );
 	}
@@ -149,15 +151,6 @@ class MWStreamFilter extends XMLWritingIteration {
 		$this->writer->text( $this->ns );
 		$this->writer->endElement();
 		$this->writer->text( "\n      " );
-		do {
-			$this->next();
-			$this->write();
-			if ( $this->current()->name === "namespaces"
-				 && $this->current()->nodeType === XMLReader::END_ELEMENT ) {
-				break;
-			}
-		} while ( 1 );
-		$this->next();
 	}
 
 	/**
@@ -167,10 +160,33 @@ class MWStreamFilter extends XMLWritingIteration {
 		do {
 			$this->write();
 			$this->next();
-		} while ( $this->current()->name !== "page" );
+		} while ( $this->current()->name !== "siteinfo" );
 	}
 
+	/**
+	 * Read in the namespaces used in the input file
+	 */
 	protected function readOldNamespaces() {
+		do {
+			$this->next();
+			$this->write();
+		} while ( $this->current()->name !== "namespace" );
+		do {
+			if ( $this->current()->name === "namespace"
+				 && $this->current()->nodeType === XMLReader::ELEMENT
+			) {
+				$ns = $this->reader->readString();
+				if ( $ns !== '' ) {
+					$this->nsFromImport[strtolower( $ns )] = true;
+				}
+			}
+			$this->next();
+			$this->write();
+		} while ( $this->current()->name !== "namespaces" );
+
+		# Add pseudo namespaces and sometimes bogus links
+		$this->nsFromImport['image'] = true;
+		$this->nsFromImport['http'] = true;
 	}
 
 	/**
@@ -358,7 +374,7 @@ class MWStreamFilter extends XMLWritingIteration {
 				$update = $this->shouldUpdate( $link );
 				if ( $update ) {
 					$revText = preg_replace(
-						$preTitleRE . $link . $postTitleRE, '[[' . $update, $revText
+						$preTitleRE . preg_quote( $link, '#' ) . $postTitleRE, '[[' . $update, $revText
 					);
 				}
 			}
@@ -387,8 +403,26 @@ class MWStreamFilter extends XMLWritingIteration {
 	 * @return bool
 	 */
 	protected function isInMainNS( $link ) {
+		if ( substr( $link, 0, 1 ) === ":" ) {
+			$link = substr( $link, 1 );
+		}
+
+		# why put links to shared drives here?
+		if ( substr( $link, 1, 2 ) === ":\\" ) {
+			return false;
+		}
+
+		# URLs?
+		if ( strstr( $link, "://" ) !== false ) {
+			return false;
+		}
+
 		$prefix = strstr( $link, ":", true );
-		if ( $prefix === false || !isset( $this->nsFromImport[$prefix] ) ) {
+
+		if ( $this->iwlookup->isValidInterwiki( $prefix ) ) {
+			return false;
+		}
+		if ( $prefix === false || !isset( $this->nsFromImport[strtolower( $prefix )] ) ) {
 			return true;
 		}
 		return false;
