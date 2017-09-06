@@ -49,45 +49,65 @@ class Import extends Maintenance {
 	public function __construct() {
 		parent::__construct();
 
-		$this->addDescription( "Import a wiki's dump file into your main namespace." );
-		$this->addOption( "namespaces", "A comma separted list of namespaces in the import "
-						  . "to import other than the main NS.", false, true, "n" );
-		$this->addOption( "target", "The target namespace to import the main ns in the "
-						  . "import to. Links in the import to pages in the main "
-						  . "namespace will be translated to this namespace.", true, true,
-						  "t" );
-		$this->addOption( "targetID", "The integer value of the target namespace.  If this "
-						  . "is not given, the script will use your configuration to "
-						  . "determine this and error out if none is found.", false, true,
-						  "i" );
-		$this->addOption( "wgServer", "The value of \$wgServer for the source wiki that "
-						  . "the dump originates on. This will be used for file imports.",
-						  false, true, "s" );
-		$this->addOption( "limit-memory", "Attempt to run with default memory limits. "
-						  . "This is likely to cause problems with the import, but you "
-						  . "can try.", false, false, "M" );
-		$this->addOption( "encode-files", "Embed a file's binary data into the output. "
-						  . "This will make your file larger (maybe too large?) but you'll "
-						  . "only have to deal with one file.\n\n        If you use this, "
-						  . "the File namespace will automatically be included and you "
-						  . "will need to pass the --uploads option to importDump.php."
-						  . "\n\n        If you don't use this but still want to import "
-						  . "one wiki's files into another, you will need to use "
-						  . "--image-base-path with importDump.php. You will also want "
-						  . "to specify at least 'File' for --namespaces.",
-						  false, false, "e" );
-		$this->addOption( "pages", "Update all links to the main namespace so that they "
-						  . "point to the new namespace.  This happens normally, but "
-						  . "using this option will attempt to translate redlinks as well "
-						  . "as existing pages" );
-		$this->addOption( "image-base-path", "Encode files from a specified path. "
-						  . "Specifying this assumes --encode-files. Defaults to an "
-						  . "images subdirectory in the current directory if not given.",
-						  false, true, "b" );
-		$this->addArg( "dumpfile", "The XML export to use. STDIN is used if this is not "
-					   . "given.", false );
-		$this->addArg( "outfile", "Where to save the XML output.  STDOUT is used if this "
-					   . "is not given.", false );
+		$this->addDescription(
+			"Import a wiki's dump file into your main namespace."
+		);
+		$this->addOption(
+			"namespaces", "A comma separted list of namespaces in the import "
+			. "to import other than the main NS.", false, true, "n"
+		);
+		$this->addOption(
+			"target", "The target namespace to import the main ns in the "
+			. "import to. Links in the import to pages in the main "
+			. "namespace will be translated to this namespace.", true, true, "t"
+		);
+		$this->addOption(
+			"targetID", "The integer value of the target namespace.  If this "
+			. "is not given, the script will use your configuration to "
+			. "determine this and error out if none is found.", false, true, "i"
+		);
+		$this->addOption(
+			"wgServer", "The value of \$wgServer for the source wiki that "
+			. "the dump originates on. This will be used for file imports.",
+			false, true, "s"
+		);
+		$this->addOption(
+			"limit-memory", "Attempt to run with default memory limits. "
+			. "This is likely to cause problems with the import, but you "
+			. "can try.", false, false, "M"
+		);
+		$this->addOption(
+			"encode-files", "Embed a file's binary data into the output. "
+			. "This will make your file larger (maybe too large?) but you'll "
+			. "only have to deal with one file.\n\n        If you use this, "
+			. "the File namespace will automatically be included and you "
+			. "will need to pass the --uploads option to importDump.php."
+			. "\n\n        If you don't use this but still want to import "
+			. "one wiki's files into another, you will need to use "
+			. "--image-base-path with importDump.php. You will also want "
+			. "to specify at least 'File' for --namespaces.",
+			false, false, "e"
+		);
+		$this->addOption(
+			"pages", "Update all links to the main namespace so that they "
+			. "point to the new namespace.  This happens normally, but "
+			. "using this option will attempt to translate redlinks as well "
+			. "as existing pages"
+		);
+		$this->addOption(
+			"image-base-path", "Encode files from a specified path. "
+			. "Specifying this assumes --encode-files. Defaults to an "
+			. "images subdirectory in the current directory if not given.",
+			false, true, "b"
+		);
+		$this->addArg(
+			"dumpfile", "The XML export to use. STDIN is used if this is not "
+			. "given.", false
+		);
+		$this->addArg(
+			"outfile", "Where to save the XML output.  STDOUT is used if this "
+			. "is not given.", false
+		);
 
 		spl_autoload_register( function ( $className ) {
 			if ( $className === "ImportWikiToNS\\MWStreamFilter" ) {
@@ -121,8 +141,9 @@ class Import extends Maintenance {
 		if ( $this->hasOption( "targetID" ) ) {
 			if ( $this->targetID !== null ) {
 				$this->error( sprintf(
-					"Provided ID for target namespace (%d) does not match ID in this "
-					. "installation (%d).  Using the provided ID anyway.",
+					"Provided ID for target namespace (%d) does not match ID "
+					. "in this installation (%d).  Using the provided ID "
+					. "anyway.",
 					$this->getOption( "targetID" ), $this->targetID
 				) );
 			}
