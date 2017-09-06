@@ -217,7 +217,7 @@ class Import extends Maintenance {
 
 	/**
 	 * Returns the name of the input file
-	 * @return string;
+	 * @return string
 	 */
 	public function getInName() {
 		return $this->inName;

@@ -63,7 +63,10 @@ class MWStreamFilter extends XMLWritingIteration {
 			// Read input twice.  Got to cache the pages the first time through.
 			$this->getPageTitles( $inTitle );
 		} else {
-			$this->import->error( "Cannot update the links if we cannot re-read the file.  Use --pages to force update anyway." );
+			$this->import->error(
+				"Cannot update the links if we cannot re-read the file. Use "
+				. "--pages to force update anyway."
+			);
 		}
 
 		$in = new XMLReader;
@@ -78,7 +81,8 @@ class MWStreamFilter extends XMLWritingIteration {
 		$this->nsList = $this->import->getNamespaces();
 
 		$this->updatePagesAnyway = $this->import->getUpdatePageLinks();
-		$this->iwlookup = MediaWikiServices::getInstance()->getInterwikiLookup();
+		$this->iwlookup
+			= MediaWikiServices::getInstance()->getInterwikiLookup();
 
 		parent::__construct( $out, $in );
 	}
@@ -230,7 +234,9 @@ class MWStreamFilter extends XMLWritingIteration {
 
 		// do xpath query for this guy
 		$xpath = new DOMXPath( $dom );
-		$xpath->registerNamespace( "m", "http://www.mediawiki.org/xml/export-0.10/" );
+		$xpath->registerNamespace(
+			"m", "http://www.mediawiki.org/xml/export-0.10/"
+		);
 		$title = $xpath->evaluate( "/m:page/m:title" );
 		$ns = $xpath->evaluate( "/m:page/m:ns" );
 		$id = $xpath->evaluate( "/m:page/m:id" );
@@ -258,7 +264,8 @@ class MWStreamFilter extends XMLWritingIteration {
 	 * @return DomDocument of massaged page
 	 */
 	public function filter() {
-		list( $titleEL, $nsEL, $idEL, $textEL, $sha1, $xml ) = $this->getPageElements();
+		list( $titleEL, $nsEL, $idEL, $textEL, $sha1, $xml )
+			= $this->getPageElements();
 		$append = false;
 		if ( $titleEL ) {
 			$title = $titleEL->textContent;
@@ -288,7 +295,10 @@ class MWStreamFilter extends XMLWritingIteration {
 			$this->removeSha1( $sha1 );
 			$this->fixRevisions( $textEL );
 
-			if ( $this->isFile( $title ) && $this->import->shouldEncodeFiles() ) {
+			if (
+				$this->isFile( $title )
+				&& $this->import->shouldEncodeFiles()
+			) {
 				$this->addEncodedFile( $title, $pageEL );
 			}
 
@@ -313,21 +323,26 @@ class MWStreamFilter extends XMLWritingIteration {
 	 */
 	protected function addEncodedFile( $title, DOMElement $xml ) {
 		$file = Title::newFromText( $title )->getDBkey();
-		$path = $this->import->getBasePath() . "/" . self::getHashPath( $file ) . "/$file";
+		$path = $this->import->getBasePath() . "/" .
+			  self::getHashPath( $file ) . "/$file";
 
 		if ( !file_exists( $path ) ) {
-			$this->import->error( "File doesn't exits, cannot encode: " . $file );
+			$this->import->error( "File doesn't exits, cannot encode: "
+								  . $file );
 			return;
 		}
 
 		$contents = file_get_contents( $path );
 		if ( $contents === false ) {
-			$this->import->error( "Trouble getting contents of file: " . $file );
+			$this->import->error( "Trouble getting contents of file: "
+								  . $file );
 			return;
 		}
 
 		$upload = new DomElement( "upload" );
-		$contents = new DomElement( "contents", chunk_split( base64_encode( $contents ) ) );
+		$contents = new DomElement(
+			"contents", chunk_split( base64_encode( $contents ) )
+		);
 
 		$xml->appendChild( $upload );
 		$upload->appendChild( $contents );
@@ -368,13 +383,15 @@ class MWStreamFilter extends XMLWritingIteration {
 		$postTitleRE = '#';
 		foreach ( $textEL as $revision ) {
 			$revText = $revision->textContent;
-			preg_match_all( $preTitleRE . '([^|\]]+)' . $postTitleRE, $revText, $match );
+			preg_match_all( $preTitleRE . '([^|\]]+)' . $postTitleRE,
+							$revText, $match );
 			$links = array_unique( $match[1] );
 			foreach ( $links as $link ) {
 				$update = $this->shouldUpdate( $link );
 				if ( $update ) {
 					$revText = preg_replace(
-						$preTitleRE . preg_quote( $link, '#' ) . $postTitleRE, '[[' . $update, $revText
+						$preTitleRE . preg_quote( $link, '#' ) . $postTitleRE,
+						'[[' . $update, $revText
 					);
 				}
 			}
@@ -422,7 +439,10 @@ class MWStreamFilter extends XMLWritingIteration {
 		if ( $this->iwlookup->isValidInterwiki( $prefix ) ) {
 			return false;
 		}
-		if ( $prefix === false || !isset( $this->nsFromImport[strtolower( $prefix )] ) ) {
+		if (
+			$prefix === false
+			|| !isset( $this->nsFromImport[strtolower( $prefix )] )
+		) {
 			return true;
 		}
 		return false;
