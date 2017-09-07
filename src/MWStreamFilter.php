@@ -70,10 +70,20 @@ class MWStreamFilter extends XMLWritingIteration {
 		}
 
 		$in = new XMLReader;
-		$in->open( $this->import->getInName() );
+		if ( !$in->open( $this->import->getInName() ) ) {
+			$err = error_get_last();
+			$this->import->error(
+				"Trouble opening input: {$err['message']}", true
+			);
+		}
 
 		$out = new XMLWriter();
-		$out->openURI( $this->import->getOutName() );
+		if ( !$out->openURI( $this->import->getOutName() ) ) {
+			$err = error_get_last();
+			$this->import->error(
+				"Trouble opening output: {$err['message']}", true
+			);
+		}
 
 		$this->ns = $this->import->getTargetNS();
 		$this->nsID = $this->import->getTargetNSID();

@@ -46,6 +46,9 @@ class Import extends Maintenance {
 	protected $encode;
 	protected $basePath;
 
+	protected $load;
+	protected $search;
+
 	public function __construct() {
 		parent::__construct();
 
@@ -100,6 +103,14 @@ class Import extends Maintenance {
 			. "images subdirectory in the current directory if not given.",
 			false, true, "b"
 		);
+		$this->addOption(
+			"load", "Load this dump into the wiki immediately.", false, false,
+			"l"
+		);
+		$this->addOption(
+			"search", "Update CirrusSearch on every page load. (will be "
+			. "ignored without -l)", false, false, "S"
+		);
 		$this->addArg(
 			"dumpfile", "The XML export to use. STDIN is used if this is not "
 			. "given.", false
@@ -131,7 +142,6 @@ class Import extends Maintenance {
 			$this->canReopen = true;
 		}
 
-		$this->outName = "php://stdout";
 		if ( $this->hasArg( 1 ) ) {
 			$this->outName = $this->getArg( 1 );
 		}
@@ -162,6 +172,28 @@ class Import extends Maintenance {
 			$this->encode = true;
 		}
 
+		if ( $this->hasOption( "load" ) ) {
+			if ( $this->outName ) {
+				$this->error(
+					"You have to specify EITHER an output file or immediate "
+					. "loading, not both.", true
+				);
+			}
+			$this->setupLoad();
+		}
+
+		if ( $this->hasOption( "search" )
+			 && class_exists( 'CirrusSearch' ) ) {
+			$this->search = true;
+			if ( !$this->load ) {
+				$this->setupLoad();
+				$this->output(
+					"Setting for immediate loading since you "
+					. "asked for search updates."
+				);
+			}
+		}
+
 		if ( $this->hasOption( "encode-files" ) || $this->encode ) {
 			$this->encode = true;
 
@@ -182,8 +214,20 @@ class Import extends Maintenance {
 			$this->namespaces['File'] = true;
 		}
 
+		if ( !$this->outName ) {
+			$this->outName = "php://stdout";
+		}
+
 		$mwsf = new MWStreamFilter( $this );
 		$mwsf->transform();
+	}
+
+	/**
+	 * Make a wiki importer
+	 */
+	public function setupLoad() {
+		$this->load = true;
+
 	}
 
 	/**
@@ -226,6 +270,22 @@ class Import extends Maintenance {
 	 */
 	public function output( $out, $channel = null ) {
 		parent::output( $out, $channel );
+	}
+
+	/**
+	 * Returns true if we are to load the xml immediately
+	 * @return bool
+	 */
+	public function immediateLoad() {
+		return $this->load;
+	}
+
+	/**
+	 * Returns true if the search is to be updated
+	 * @return bool
+	 */
+	public function updateSearch() {
+		return $this->search;
 	}
 
 	/**
