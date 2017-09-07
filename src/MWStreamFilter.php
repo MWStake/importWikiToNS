@@ -126,10 +126,13 @@ class MWStreamFilter extends XMLWritingIteration {
 	 * Internal method to get all the namespaces used.
 	 */
 	protected function findNamespaces() {
+		$this->next();
 		$current = $this->current();
 		if ( $current === null ) {
-			$this->next();
-			$current = $this->current();
+			$this->import->output(
+				"Could not find any XML. Quitting.\n"
+			);
+			exit;
 		}
 		while ( $current && $current->name !== "namespaces" ) {
 			if ( $current->name === "case" ) {
