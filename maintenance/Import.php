@@ -228,6 +228,11 @@ class Import extends Maintenance {
 	public function setupLoad() {
 		$this->load = true;
 
+		if ( !in_array( 'mwxml', stream_get_wrappers() ) ) {
+			stream_wrapper_register( 'mwxml', 'ImportWikiToNS\MWXMLStream' );
+		}
+
+		$this->outName = 'mwxml://';
 	}
 
 	/**
